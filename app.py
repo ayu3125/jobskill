@@ -1,86 +1,132 @@
 import streamlit as st
 import pandas as pd
 
-# Load job data
+# -----------------------------
+# PAGE CONFIG
+# -----------------------------
+st.set_page_config(page_title="Job Skill Gap Analyzer", layout="wide")
+
+st.title("💼 Job Skill Gap Analyzer")
+st.write("Analyze your skills and find gaps for your target job role.")
+
+# -----------------------------
+# LOAD JOB DATABASE
+# -----------------------------
 data = pd.read_csv("jobs.csv")
 
-st.title("Job Skill Gap Analyzer")
-
-# Dropdown for job roles
-job_role = st.selectbox("Select Target Job Role", data["job_role"])
-
-# User input for skills
-all_skills = list(set(",".join(data["skills"]).split(",")))
-
-user_skills = st.multiselect(
-    "Select Your Skills",
-    options=sorted([s.strip() for s in all_skills])
+# -----------------------------
+# JOB ROLE SELECTION
+# -----------------------------
+job_role = st.selectbox(
+    "Select Your Target Job Role",
+    data["job_role"]
 )
 
+# Get skills for selected job
+job_skills_raw = data[data["job_role"] == job_role]["skills"].values[0]
+job_skills = [skill.strip().lower() for skill in job_skills_raw.split(",")]
+
+# -----------------------------
+# CREATE GLOBAL SKILL LIST
+# -----------------------------
+all_skills = list(set(",".join(data["skills"]).split(",")))
+all_skills = [s.strip() for s in all_skills]
+all_skills = sorted(all_skills)
+
+# -----------------------------
+# USER SKILL INPUT
+# -----------------------------
+user_skills = st.multiselect(
+    "Select Your Skills",
+    options=all_skills
+)
+user_skills_list = [skill.strip().lower() for skill in user_skills]
+# -----------------------------
+# ANALYZE BUTTON
+# -----------------------------
 if st.button("Analyze Skill Gap"):
 
-    # Get job skills
-    job_skills = data[data["job_role"] == job_role]["skills"].values[0]
-    job_skills = [skill.strip().lower() for skill in job_skills.split(",")]
-
-    # Convert user skills
-    user_skills_list = [skill.strip().lower() for skill in user_skills.split(",")]
-
-    # Find missing skills
+    # Calculate matches
+    matched_skills = list(set(user_skills_list) & set(job_skills))
     missing_skills = [skill for skill in job_skills if skill not in user_skills_list]
 
-    st.subheader("Required Skills")
-    st.write(job_skills)
+    # Skill match percentage
+    match_percentage = (len(matched_skills) / len(job_skills)) * 100
 
-    st.subheader("Your Skills")
-    st.write(user_skills_list)
+    st.divider()
 
-    st.subheader("Missing Skills")
+    col1, col2 = st.columns(2)
+
+    # -----------------------------
+    # LEFT COLUMN
+    # -----------------------------
+    with col1:
+
+        st.subheader("📊 Skill Match Score")
+        st.metric(label="Match Percentage", value=f"{match_percentage:.1f}%")
+
+        st.subheader("✅ Useful Skills You Already Have")
+
+        if matched_skills:
+            for skill in matched_skills:
+                st.success(skill.capitalize())
+        else:
+            st.warning("No matching skills found")
+
+    # -----------------------------
+    # RIGHT COLUMN
+    # -----------------------------
+    with col2:
+
+        st.subheader("⚠️ Missing Skills")
+
+        if missing_skills:
+            for skill in missing_skills:
+                st.error(skill.capitalize())
+        else:
+            st.success("You already have all required skills!")
+
+    # -----------------------------
+    # REQUIRED SKILLS DISPLAY
+    # -----------------------------
+    st.divider()
+
+    st.subheader("🎯 Skills Required for This Job")
+
+    for skill in job_skills:
+        st.write("•", skill.capitalize())
+
+    # -----------------------------
+    # LEARNING RECOMMENDATIONS
+    # -----------------------------
+    st.divider()
+
+    st.subheader("📚 Recommended Learning Resources")
+
+    resource_links = {
+        "python": "https://www.learnpython.org",
+        "sql": "https://sqlbolt.com",
+        "excel": "https://excel-practice-online.com",
+        "power bi": "https://learn.microsoft.com/en-us/power-bi/",
+        "statistics": "https://www.khanacademy.org/math/statistics-probability",
+        "linux": "https://linuxjourney.com",
+        "networking": "https://www.netacad.com",
+        "docker": "https://docker-curriculum.com",
+        "react": "https://react.dev",
+        "javascript": "https://javascript.info",
+        "git": "https://git-scm.com/docs/gittutorial"
+    }
 
     if missing_skills:
-        st.write(missing_skills)
+        for skill in missing_skills:
+            link = resource_links.get(skill, "https://www.google.com/search?q=learn+" + skill)
+            st.write(f"🔗 Learn {skill.capitalize()}: {link}")
+
     else:
-        st.success("You already have all required skills!")
+        st.write("You already have all the required skills for this role!")
 
-match_percentage = (len(set(user_skills_list) & set(job_skills)) / len(job_skills)) * 100
-
-st.subheader("Skill Match Score")
-st.write(f"{match_percentage:.2f}% match")
-
-matched_skills = list(set(user_skills_list) & set(job_skills))
-
-st.subheader("Useful Skills You Already Have")
-st.write(matched_skills)
-
-from openai import OpenAI
-
-client = OpenAI(api_key="YOUR_API_KEY")
-
-def get_learning_advice(missing_skills):
-
-    prompt = f"""
-    A student is missing the following skills for a job: {missing_skills}.
-    Recommend how they can learn these skills and useful resources.
-    """
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role":"user","content":prompt}]
-    )
-
-    return response.choices[0].message.content
-
-if missing_skills:
-    advice = get_learning_advice(missing_skills)
-    st.subheader("AI Learning Recommendations")
-    st.write(advice)
-
-col1, col2 = st.columns(2)
-
-with col1:
-    st.subheader("Your Skills")
-    st.write(user_skills)
-
-with col2:
-    st.subheader("Missing Skills")
-    st.write(missing_skills)
+# -----------------------------
+# FOOTER
+# -----------------------------
+st.divider()
+st.caption("Built with Python + Streamlit")
